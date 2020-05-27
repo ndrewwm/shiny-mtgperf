@@ -1,0 +1,40 @@
+.skin-blue .main-header .logo {
+  background-color: #007a99;
+}
+
+/* navbar (rest of the header) */
+.skin-blue .main-header .navbar {
+  background-color: #007a99;
+}
+
+/* main sidebar */
+.skin-blue .main-sidebar {
+  background-color: #007a99;
+}
+
+/* active selected tab in the sidebarmenu */
+.skin-blue .main-sidebar .sidebar .sidebar-menu .active a {
+  color: #111;
+  background-color: #ecf0f5;
+  border-left-color: #007a99;
+}
+
+/* other links in the sidebarmenu */
+.skin-blue .main-sidebar .sidebar .sidebar-menu a {
+  background-color: #007a99;
+  color: #fff;
+}
+
+.content-wrapper {
+  background-color: #ecf0f5;
+}
+
+.content {
+    background-color: #ecf0f5;
+    min-height: 250px;
+    padding: 15px;
+    margin-right: auto;
+    margin-left: 20px;
+    padding-left: 15px;
+    padding-right: 15px;
+}
