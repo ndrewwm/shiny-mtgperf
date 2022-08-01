@@ -1,210 +1,198 @@
 library(tidyverse)
 library(scales)
 library(shiny)
-library(shinydashboard)
-library(DT)
-library(readxl)
-library(rstanarm)
+library(ggtext)
+library(gt)
+# library(googlesheets4)
 
 theme_set(
-    theme_minimal(base_size = 16) +
-        theme(
-            panel.grid       = element_line(color = "#b3b3b3"),
-            panel.grid.minor = element_blank(),
-            panel.background = element_rect(fill = "#ecf0f5", color = "#ecf0f5"),
-            plot.background  = element_rect(fill = "#ecf0f5", color = "#ecf0f5")
-        )
+  theme_minimal(base_size = 20) +
+    theme(
+      panel.grid       = element_blank(),
+      axis.ticks       = element_line(),
+      axis.title.x     = element_text(hjust = 0.01),
+      axis.title.y     = element_text(hjust = 1.00),
+      panel.background = element_rect(fill = "#ecf0f5", color = "#ecf0f5"),
+      plot.title       = element_markdown(),
+      plot.background  = element_rect(fill = "#ecf0f5", color = "#ecf0f5")
+    )
 )
 
-# Define UI for application that draws a histogram
-ui <- dashboardPage(
-    # includeCSS("www/style.css"),
+# import data -------------------------------------------------------------
 
-    dashboardHeader(title = HTML("<b>MW%</b>"), titleWidth = 80),
+# configuration needed for googlesheets, commented out
+# options(
+#   gargle_oauth_cache = ".secrets",
+#   gargle_oauth_email = TRUE
+# )
+#
+# url <- "https://docs.google.com/spreadsheets/d/140TKlD2VNIwNGA3OntNXyQYKpXydrHFoyvu2W4eYgSw/edit?usp=drive_web&ouid=103984755385597722824"
+# dat <- read_sheet(url, "Modern Testing", "B:H")
 
-    dashboardSidebar(
-        sidebarMenu(
-            menuItem("Upload", tabName = "upload", icon = icon("upload")),
-            menuItem("Describe", tabName = "describe", icon = icon("th")),
-            menuItem("Predict", tabName = "predict", icon = icon("fas fa-chart-area")),
-            fileInput("file", "Excel Upload:", accept = ".xlsx"),
-            textInput("email", "Email (optional):", value = "I don't do anything yet! :'("),
-            actionButton(inputId = "okay", label = "Okay!", icon = icon("fas fa-check"))
-        )
+# created from the call to above, and written out into the folder using write_csv(dat, "testdata.csv")
+dat <- read_csv("testdata.csv")
+
+d <- dat |>
+  mutate(
+    matchup = matchup |> str_trim() |> str_to_title(),
+    event = event |> str_trim() |> str_to_title(),
+    deck = deck |> str_trim() |> str_to_title()
+  )
+
+# app ---------------------------------------------------------------------
+
+ui <- fluidPage(
+  includeCSS("www/style.css"),
+
+  titlePanel("Matchup Performance Over Time"),
+
+  sidebarLayout(
+    sidebarPanel(
+      selectInput(
+        "deck",
+        "Deck(s)",
+        choices = unique(d$deck) |> na.omit(),
+        multiple = TRUE,
+        selected = "Murktide V11"
+      ),
+
+      selectInput(
+        "matchup",
+        "Matchup(s)",
+        choices = d |> count(matchup, sort = TRUE) |> filter(!is.na(matchup)) |> pull(matchup),
+        multiple = TRUE
+      ),
+
+      submitButton("Submit", icon = icon("refresh")),
+
+      br(),
+      p(
+        "This Shiny app can be used to visualize the performance of a selected ",
+        em("Magic: the Gathering"), "(MtG) deck vs. a selected opposing matchup (or matchups).
+        It can be configured to read a static file, or read directly from a Google sheet.
+        I built the app to help summarize the testing data I collected during
+        my preparation for the July 2022 Pacific Sound Battlegrounds Trios tournament.
+        I was playing the ", em("Modern"), "format, one of the most popular ways of
+        varieties of playing MtG, and a format known for its diverse metagame.",
+        br(),
+        br(),
+        "Andrew Elenbogen, a well-known player from Michigan, and Pro-Tour victor
+        once ", a("tweeted", href = "https://twitter.com/Ajelenbogen/status/1083444796956524544?s=20&t=fW__X92fgPZHtZvMEhj07Q"),
+        " that \"competitive Magic is the art of correctly generalizing from sample
+        sizes too small to draw real conclusions.\" I've found this holds up, in
+        my relatively limited experiences with high-level tournaments. In the deck
+        I ended up submitting for the event (V11), I ended up playing", strong("24"),
+        "unique matchups during my practice, but only played against ", strong("2"),
+        " of them during the tournament. That said, even with small sample sizes,
+        collecting the data helped me understand what was and wasn't working across
+        the iterations of deck-building I made. The V11 list ultimately emerged from
+        small changes to my (mostly successful) V6 skeleton."
+      )
     ),
 
-    dashboardBody(
-        tags$head(
-            tags$link(rel = "stylesheet", type = "text/css", href = "style.css")
-        ),
-
-        tabItems(
-            tabItem(
-                tabName = "upload",
-                fluidRow(
-                    h3("Welcome!"),
-                    p("This app can help you analyze your performance in limited MtG events. Before any analysis can be performed, you'll need to upload a data file that contains results from the events you want to examine."),
-                    p("This application is meant to with data that is stored in an excel spreadsheet, with each set (i.e. limited format) stored in separate tabs of the file. In order to use this app, you'll need to provide a file structured like the one below.")
-                ),
-                fluidRow(
-                    h3("Example File"),
-                    tableOutput("example"),
-                    p(HTML("Your file can contain more columns than what is listed, but <b>you must include these 5 columns, with the same column names.</b>")),
-                    h3("Data Input/Recording Instructions"),
-                    p(HTML(str_glue(
-                        "<b>Each individual expansion/set should be recorded as its own sheet in the file. Please use the 3-character set abbreviations for sheet names!</b><br><br>",
-                        "Below are brief descriptions on how data should be stored in each column.<br><br>",
-                        "<b>date:</b> date of event (YYYY-MM-DD, YYYY/MM/DD, MM/DD/YYYY, MM-DD-YYYY accepted).<br>",
-                        "<b>format:</b> a description of the event; the application will search for keywords in this field (e.g. 'draft', 'sealed', 'ptq', 'bo1', 'bo3'). Text will be converted to lowercase upon upload.<br>",
-                        "<b>mw</b>: <i>matches</i> won during event.<br>",
-                        "<b>ml</b>: <i>matches</i> lost during event.<br>",
-                        "<b>colors:</b> the colors used in the event's deck. <i>Case-sensitive!</i> E.g. an entry of 'WUr' would represent a deck playing white & blue, with a splash for red.<br>",
-                        ))
-                     )
-                ),
-
-                fluidRow(
-                    h3("Import Preview"),
-                    tableOutput("importPreview")
-                )
-            ),
-
-            tabItem(
-                tabName = "describe",
-                fluidRow(
-                    h3("Describe"),
-                    DTOutput("setDesc"),
-                    hr(),
-                    plotOutput("mwpOverTime")
-                )
-            ),
-
-            tabItem(
-                tabName = "predict",
-                fluidRow(
-                    h3("Predict")
-                )
-            )
-        )
+    mainPanel(
+      # plotlyOutput("mwot", height = "100%", width = "100%"),
+      plotOutput("mwot"),
+      br(),
+      br(),
+      gt::gt_output("summary_tbl"),
+      br(),
+      br()
     )
+  )
 )
 
 server <- function(input, output, session) {
-    output$example <- renderTable(
-        tribble(
-            ~date, ~format, ~mw, ~ml, ~colors,
-            "2020-01-25", "mtgo swiss draft", 2, 1, "UB",
-            "2020-01-25", "mtgo swiss draft", 3, 0, "UBr",
-            "2020-01-25", "mtgo swiss draft", 3, 0, "UR",
-            "2020-01-26", "mtgo swiss draft", 0, 2, "UR",
-            "2020-01-26", "mtgo swiss draft", 2, 1, "WU"
-        )
+  output$mwot <- renderPlot({ # renderPlotly({
+    d$deck <- case_when(
+      length(input$deck) > 1 & d$deck %in% input$deck ~ "Selected Deck(s)",
+      length(input$deck) == 1 & d$deck == input$deck  ~ "Selected Deck(s)",
+      TRUE                                            ~ d$deck
     )
 
-    in_data <- eventReactive(input$okay, {
-        infile <- input$file
+    to_keep <- if (!is.null(input$matchup)) d$matchup %in% input$matchup else TRUE
 
-        validate(need(str_detect(infile$datapath, "xlsx"), "Please ensure you've uploaded an excel file."))
+    out <- d |>
+      arrange(deck, date) |>
+      filter(to_keep) |>
+      group_by(deck) |>
+      mutate(
+        mnum = 1:n(),
+        cmw  = cumsum(matchwin == 1),
+        cml  = cumsum(matchwin == 0),
+        cwp  = cmw / (cmw + cml),
+        hl   = factor(deck == "Selected Deck(s)", c(FALSE, TRUE), c(0, 1))
+      ) |>
+      ungroup()
 
-        sets <- excel_sheets(infile$datapath)
+    p0 <- ggplot() +
+      geom_hline(
+        yintercept = 0.5,
+        lty = "dotted"
+      ) +
+      geom_line(
+        data = filter(out, hl == 0),
+        aes(x = mnum, y = cwp, color = hl, group = deck), size = 0.8
+      ) +
+      geom_line(
+        data = filter(out, hl == 1),
+        aes(x = mnum, y = cwp, color = hl, group = deck), size = 1.4
+      ) +
+      theme(legend.position = "none") +
+      scale_color_manual(values = c("#5f88a8", "darkblue")) + # orig: #D1DDE6
+      scale_x_continuous(name = "Matches Played", n.breaks = 5) +
+      scale_y_continuous(name = "Match-win Proportion", breaks = seq(0, 1, .25)) +
+      labs(title = "<span style = 'color: #00008b; font-weight: 900;'>Selected</span> deck(s) versus <span style = 'color: #5f88a8; font-weight: 900;'>other</span> decks.")
 
-        # read in each sheet
-        dat <- map_df(
-            sets,
-            ~read_excel(infile$datapath, sheet = .),
-            .id = "set"
-        )
+    p0
+  })
 
-        # replace numeric sheet ID w/ sheet names
-        dat$set <- factor(dat$set, levels = unique(dat$set), sets)
+  output$summary_tbl <- render_gt({
+    d$deck <- case_when(
+      length(input$deck) > 1 & d$deck %in% input$deck ~ "Selected Deck(s)",
+      length(input$deck) == 1 & d$deck == input$deck  ~ "Selected Deck(s)",
+      TRUE                                            ~ d$deck
+    )
 
-        names(dat) <- str_to_lower(names(dat))
+    to_keep <- if (!is.null(input$matchup)) d$matchup %in% input$matchup else TRUE
 
-        if (!all(c("set", "date", "format", "mw", "ml", "colors") %in% names(dat))) {
-            NULL
-        } else {
-            dat <- dat %>%
-                select(set, date, format, mw, ml, colors) %>%
-                mutate(
-                    bo1    = str_detect(format, "bo1"),
-                    sealed = str_detect(str_to_lower(format), "sealed|finals|main event"),
-                    compet = str_detect(str_to_lower(format), "prelim|main event|ptq|mcq"),
-                    splash = str_detect(colors, "[a-z]"),
-                    cols   = str_remove_all(colors, "[a-z]"),
-                    spcols = str_remove_all(colors, "[A-Z]")
-                ) %>%
-                mutate_at(vars(bo1:splash), as.numeric)
+    by_matchup <- d |>
+      filter(to_keep, deck == "Selected Deck(s)") |>
+      group_by(matchup) |>
+      summarise(
+        matches = n(),
+        gwp = sum(wins) / sum(wins + losses),
+        mwp = sum(matchwin) / n()
+      ) |>
+      arrange(desc(matches))
 
-            # color combinations
-            wubrg <- c("W", "U", "B", "R", "G")
-            guild <- c("WU", "WB", "WR", "WG", "UB", "UR", "UG", "RB", "RG", "BG")
+    overall <- d |>
+      filter(to_keep, deck == "Selected Deck(s)") |>
+      summarise(
+        matchup = "Overall",
+        matches = n(),
+        gwp = sum(wins) / sum(wins + losses),
+        mwp = sum(matchwin) / n()
+      )
 
-            cc <- c(wubrg, guild)
-
-            for (combo in cc) dat[, combo] <- str_detect(dat$cols, combo)
-
-            dat <- mutate_at(dat, vars(W:BG), as.numeric)
-
-            dat
-        }
-    })
-
-    output$importPreview <- renderTable({
-        validate(need(!is.null(in_data()), "Please ensure that all the required columns are included."))
-
-        in_data()[1:5, 1:6] %>% mutate(date = as.character(date))
-    })
-
-    output$setDesc <- renderDT({
-        validate(need(!is.null(in_data()), "Please upload a data file for analysis."))
-
-        in_data() %>%
-            group_by(set) %>%
-            summarise_at(vars(bo1:splash, W:G), mean, na.rm = T) %>%
-            left_join(
-                in_data() %>%
-                    group_by(set) %>%
-                    summarise(
-                        events  = n(),
-                        matches = sum(mw + ml),
-                        mwp     = sum(mw) / matches
-                    ),
-                by = "set"
-            ) %>%
-            mutate_at(vars(-set, -events, -matches), round, 2) %>%
-            select(set, events, matches, mwp, everything()) %>%
-            DT::datatable(
-                extensions = "FixedColumns",
-                options = list(
-                    dom = 't',
-                    scrollX = TRUE,
-                    scrollY = TRUE,
-                    paging  = FALSE,
-                    fixedHeader = TRUE,
-                    fixedColumns = list(leftColumns = 2, rightColumns = 0))
-            )
-    })
-
-    output$mwpOverTime <- renderPlot({
-        validate(need(!is.null(in_data()), "Please upload a data file for analysis."))
-
-        p_mwp_ot <- in_data() %>%
-            group_by(set) %>%
-            summarise(pct = sum(mw) / sum(mw + ml)) %>%
-            ggplot(aes(x = fct_rev(set), y = pct)) +
-            geom_col() +
-            labs(
-              x = "",
-              y = "",
-              title = "Match-win % by Set"
-            )
-
-        if (max(p_mwp_ot$pct) > .7) {
-            p_mwp_ot + scale_y_continuous(labels = percent)
-        } else {
-            p_mwp_ot + scale_y_continuous(labels = percent, limits = c(0, .7))
-        }
-    })
+    bind_rows(overall, by_matchup) |>
+      mutate(frac_matches = matches / first(matches)) |>
+      relocate(frac_matches, .before = gwp) |>
+      gt(rowname_col = "matchup") |>
+      cols_label(
+        matchup = md("**Matchup**"),
+        matches = md("**Matches Played**"),
+        frac_matches = md("**Share of Matches Played**"),
+        gwp     = md("**GW%**"),
+        mwp     = md("**MW%**")
+      ) |>
+      fmt_percent(columns = frac_matches:mwp, decimals = 1) |>
+      tab_stubhead(label = md("**Matchup**")) |>
+      tab_options(
+        table.background.color = "#ecf0f5",
+        row.striping.include_table_body = TRUE
+      )
+  })
 }
 
 # Run the application
