@@ -32,7 +32,24 @@ d <- dat |>
 
 # plotting & table functions ----------------------------------------------
 
+# helper to produce a blank gt table (e.g. instead of rendering an error)
+empty_gt_table <- function(color = "#ecf0f5") {
+  tibble(i = "", j = "") |>
+    gt() |>
+    cols_label(i = "", j = "") |>
+    tab_options(
+      table.background.color = color,
+      table_body.hlines.color = color,
+      table_body.vlines.color = color,
+      column_labels.border.top.color = color,
+      column_labels.border.bottom.color = color,
+      table_body.border.bottom.color = color
+    )
+}
+
 mwot_plot <- function(data, decks, matchups) {
+  if (is.null(data) | is.null(decks)) return(ggplot())
+
   d <- data
 
   d$deck <- case_when(
@@ -79,6 +96,8 @@ mwot_plot <- function(data, decks, matchups) {
 }
 
 mw_tbl <- function(data, decks, matchups) {
+  if (is.null(data) | is.null(decks)) return(empty_gt_table())
+
   d <- data
 
   d$deck <- case_when(
@@ -133,7 +152,7 @@ ui <- navbarPage(
   "Matchup Performance Over Time",
   includeCSS("www/style.css"),
   useShinyalert(),
-    
+
   tabPanel("Demonstration",
     sidebarLayout(
       sidebarPanel(
@@ -183,7 +202,7 @@ ui <- navbarPage(
         plotOutput("mwot"),
         br(),
         br(),
-        
+
         gt_output("summary_tbl"),
         br(),
         br()
@@ -265,7 +284,7 @@ server <- function(input, output, session) {
 
   output$user_deck_input <- renderUI({
     req(input$file1)
-    
+
     decks <- user() |> pull(deck) |> unique() |> na.omit()
 
     selectInput(
