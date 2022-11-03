@@ -1,3 +1,18 @@
 body {
-  background-color: #ecf0f5
+  background-color: #ecf0f5;
+  color: black;
+}
+
+.navbar-default {
+  background-color: #ecf0f5;
+  color: black;
+}
+
+.navbar-default .navbar-nav>.active>a, .navbar-default .navbar-nav>.active>a:focus, .navbar-default .navbar-nav>.active>a:hover {
+  background-color: #b6d3fd;
+  color: black;
+}
+
+.navbar-default .navbar-nav>.inactive>a, .navbar-default .navbar-nav>.inactive>a:focus, .navbar-default .navbar-nav>.inactive>a:hover {
+  color: black;
 }
