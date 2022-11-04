@@ -1,0 +1,28 @@
+name: Deploy to shinyapps.io
+# see for reference: https://github.com/r-lib/actions
+# example: https://github.com/djpr-data/djprlabourdash/blob/main/.github/workflows/deploy-shiny.yaml
+
+on:
+  push:
+    branches: 
+      - main
+
+jobs:
+  deploy-shiny:
+    runs-on: macos-latest
+    # TODO: GH token needed?
+    # env:
+    #   GITHUB_PAT: ${{secrets.GITHUB_TOKEN}}
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup R
+        uses: r-lib/actions/setup-r@v2
+      - name: Setup R dependencies
+        uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: |
+            any::rsconnect
+      - name: deploy-shiny
+        run: |
+          Rscript -e "rsconnect::setAccountInfo(name = 'ndrewwm', token = '${{secrets.SHINYAPPS_TOKEN}}', secret = '${{secrets.SHINYAPPS_SECRET}}')"
+          Rscript -e "rsconnect::deployApp(appName = 'shiny-mtgperf')"
