@@ -49,7 +49,6 @@ empty_gt_table <- function(color = "#ecf0f5") {
 
 mwot_plot <- function(data, decks, matchups) {
   if (is.null(data) | is.null(decks)) return(ggplot())
-  if (!all(names(d) %in% names(user()))) return(ggplot())
 
   d <- data
 
@@ -98,7 +97,6 @@ mwot_plot <- function(data, decks, matchups) {
 
 mw_tbl <- function(data, decks, matchups) {
   if (is.null(data) | is.null(decks)) return(empty_gt_table())
-  if (!all(names(d) %in% names(user()))) return(empty_gt_table())
 
   d <- data
 
