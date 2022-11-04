@@ -284,6 +284,11 @@ server <- function(input, output, session) {
     )
   })
 
+  # TODO: build out cases, check types?
+  observeEvent(input$file1, {
+    if (!all(names(d) %in% names(user()))) shinyalert("It looks like you're missing some columns!")
+  })
+
   output$user_deck_input <- renderUI({
     req(input$file1)
 
