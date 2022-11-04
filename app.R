@@ -151,7 +151,6 @@ mw_tbl <- function(data, decks, matchups) {
 ui <- navbarPage(
   "Matchup Performance Over Time",
   includeCSS("www/style.css"),
-  useShinyalert(),
 
   tabPanel("Demonstration",
     sidebarLayout(
@@ -171,8 +170,9 @@ ui <- navbarPage(
           multiple = TRUE
         ),
 
-        actionButton("demo_go", "Submit", icon = icon("refresh")),
+        actionButton("demo_go", "Submit", icon = icon("arrows-rotate")),
 
+        br(),
         br(),
         p(
           "This Shiny app can be used to visualize the performance of a selected ",
@@ -216,7 +216,8 @@ ui <- navbarPage(
         fileInput("file1", "Upload a CSV file", accept = c(".csv", "text/csv", "text/comma-separated-values,text/plain")),
 
         p(
-          "You can upload your own data for summary. The file must be comma-delimited, and have the following names as a header:",
+          "You can upload your own data for summary. Each row in your data should reflect 1 match.
+           The file must be comma-delimited, and have the following names as a header:",
           tags$ul(
             tags$li(strong("deck"), " name/id for the deck you're playing"),
             tags$li(strong("date"), " date of match"),
@@ -328,7 +329,7 @@ server <- function(input, output, session) {
   output$user_submit <- renderUI({
     req(input$file1)
     if (!(all(names(d) %in% names(user())))) return(NULL) 
-    actionButton("user_go", "Submit", icon = icon("refresh"))
+    actionButton("user_go", "Submit", icon = icon("arrows-rotate"))
   })
 
   user_deck <- eventReactive(input$user_go, input$user_deck)
