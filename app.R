@@ -283,9 +283,21 @@ server <- function(input, output, session) {
     )
   })
 
-  # TODO: build out cases, check types?
+  # TODO: check types?
   observeEvent(input$file1, {
-    if (!all(names(d) %in% names(user()))) shinyalert("It looks like you're missing some columns!")
+    un <- names(user())
+    
+    if (!all(names(d) %in% un)) {
+      # find which fields are missing from the file
+      missing_fields <- setdiff(names(d), un)
+
+      # take each element, and them up into a list
+      msg <- str_glue("<li>{missing_fields}</li>")
+      msg <- str_c("<ul>", str_c(msg, collapse = ""), "</ul>", sep = "")
+      msg <- str_c("<p><strong>It looks like your upload is missing the following field(s):</strong></p><br>", msg, sep = "")
+      
+      shinyalert(msg, html = TRUE)
+    }
   })
 
   output$user_deck_input <- renderUI({
