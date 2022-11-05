@@ -9,7 +9,7 @@ on:
 
 jobs:
   deploy-shiny:
-    runs-on: macos-latest
+    runs-on: ubuntu-latest # was macos-latest
     # TODO: GH token needed?
     # env:
     #   GITHUB_PAT: ${{secrets.GITHUB_TOKEN}}
