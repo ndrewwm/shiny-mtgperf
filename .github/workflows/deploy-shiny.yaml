@@ -21,7 +21,7 @@ jobs:
         uses: r-lib/actions/setup-r-dependencies@v2
         with:
           extra-packages: |
-            any::rsconnect
+            rsconnect
       - name: deploy-shiny
         run: |
           Rscript -e "rsconnect::setAccountInfo(name = 'ndrewwm', token = '${{secrets.SHINYAPPS_TOKEN}}', secret = '${{secrets.SHINYAPPS_SECRET}}')"
